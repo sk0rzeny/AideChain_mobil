@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 390">
+  <defs>
+    <style>
+      .top    { fill: #ffffff; stroke: #3B82F6; stroke-width: 3; }
+      .left   { fill: #b0b0b0; stroke: #3B82F6; stroke-width: 3; }
+      .right  { fill: #686868; stroke: #3B82F6; stroke-width: 3; }
+      .chain  { fill: none; stroke: #3B82F6; stroke-width: 3.6; stroke-dasharray: 9 6; }
+    </style>
+  </defs>
+
+  <!-- CUBE 1 (haut gauche) -->
+  <polygon class="top"   points="60,84 120,54 180,84 120,114"/>
+  <polygon class="left"  points="60,84 60,150 120,180 120,114"/>
+  <polygon class="right" points="180,84 180,150 120,180 120,114"/>
+
+  <!-- CUBE 2 (haut droite) -->
+  <polygon class="top"   points="180,84 240,54 300,84 240,114"/>
+  <polygon class="left"  points="180,84 180,150 240,180 240,114"/>
+  <polygon class="right" points="300,84 300,150 240,180 240,114"/>
+
+  <!-- Lien cube 1 → cube 2 -->
+  <line class="chain" x1="120" y1="180" x2="240" y2="180"/>
+
+  <!-- CUBE 3 (centre, bas) -->
+  <polygon class="top"   points="120,204 180,174 240,204 180,234"/>
+  <polygon class="left"  points="120,204 120,270 180,300 180,234"/>
+  <polygon class="right" points="240,204 240,270 180,300 180,234"/>
+
+  <!-- Lien cube 1 → cube 3 -->
+  <line class="chain" x1="120" y1="180" x2="120" y2="204"/>
+  <!-- Lien cube 2 → cube 3 -->
+  <line class="chain" x1="240" y1="180" x2="240" y2="204"/>
+</svg>

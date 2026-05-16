@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/translations.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadSavedLocale();
   runApp(const AideChainApp());
 }
 
@@ -14,20 +16,30 @@ class AideChainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AideChain',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3B82F6)),
-        useMaterial3: true,
-      ),
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
-      home: const SplashScreen(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: localeNotifier,
+      builder: (context, locale, _) {
+        return MaterialApp(
+          title: 'AideChain',
+          debugShowCheckedModeBanner: false,
+          locale: locale,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3B82F6)),
+            useMaterial3: true,
+          ),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('fr', 'FR'),
+            Locale('en', 'US'),
+            Locale('ar', 'SA'),
+          ],
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }
@@ -58,17 +70,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF0F172A),
+    return Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.shield_outlined, size: 72, color: Color(0xFF3B82F6)),
-            SizedBox(height: 16),
-            Text('AideChain', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)),
-            SizedBox(height: 8),
-            Text('Registre partagé · Tchad', style: TextStyle(color: Color(0xFF64748B))),
+            Image.asset('assets/icon.png', width: 96, height: 96),
+            const SizedBox(height: 16),
+            const Text('AideChain', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            Text(tr('app_subtitle'), style: const TextStyle(color: Color(0xFF64748B))),
           ],
         ),
       ),

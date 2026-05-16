@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import '../l10n/translations.dart';
 import '../services/api_service.dart';
 import '../services/db_service.dart';
 
@@ -15,35 +16,31 @@ class DistribuerAideScreen extends StatefulWidget {
 }
 
 class _State extends State<DistribuerAideScreen> {
-  // Étape 1 — recherche bénéficiaire
   final _prenomCtrl = TextEditingController();
   final _nomCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
   bool _searching = false;
   String? _searchError;
 
-  // Bénéficiaire trouvé
   int? _beneficiaireId;
   String _beneficiaireNom = '';
   Map<String, dynamic>? _doublonInfo;
 
-  // Étape 2 — projets
   List<Map<String, dynamic>> _projets = [];
   bool _loadingProjets = false;
   int? _selectedProjetId;
   String _notesText = '';
 
-  // Soumission
   bool _submitting = false;
   bool _savedOffline = false;
   String? _submitError;
 
-  int _step = 1; // 1=recherche, 2=projet, 3=succès
+  int _step = 1;
 
   @override
   void initState() {
     super.initState();
-    // Si bénéficiaire passé depuis EnregistrerBeneficiaireScreen
+    localeNotifier.addListener(_onLocaleChange);
     if (widget.beneficiaireId != null) {
       _beneficiaireId = widget.beneficiaireId;
       _beneficiaireNom = widget.beneficiaireNom ?? '';
@@ -51,6 +48,8 @@ class _State extends State<DistribuerAideScreen> {
       _loadProjets();
     }
   }
+
+  void _onLocaleChange() => setState(() {});
 
   Future<void> _searchBeneficiaire() async {
     if (_prenomCtrl.text.isEmpty || _nomCtrl.text.isEmpty || _dateCtrl.text.isEmpty) return;
@@ -65,23 +64,25 @@ class _State extends State<DistribuerAideScreen> {
 
       if (!mounted) return;
 
-      if (res['found'] == false) {
-        setState(() => _searchError = 'Bénéficiaire introuvable. Enregistrez-le d\'abord.');
+      final data = res['data'] as Map<String, dynamic>;
+
+      if (data['found'] == false) {
+        setState(() => _searchError = tr('not_found'));
         return;
       }
 
-      if (res['doublon'] != null) {
-        setState(() => _doublonInfo = res['doublon'] as Map<String, dynamic>);
+      if (data['doublon'] != null) {
+        setState(() => _doublonInfo = data['doublon'] as Map<String, dynamic>);
       }
 
       setState(() {
-        _beneficiaireId = res['beneficiaire_id'] as int?;
+        _beneficiaireId = (data['beneficiaire'] as Map<String, dynamic>?)?['id'] as int?;
         _beneficiaireNom = '${_prenomCtrl.text.trim()} ${_nomCtrl.text.trim()}';
         _step = 2;
       });
       _loadProjets();
     } catch (_) {
-      if (mounted) setState(() => _searchError = 'Impossible de contacter le serveur.');
+      if (mounted) setState(() => _searchError = tr('server_contact_error'));
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -101,17 +102,15 @@ class _State extends State<DistribuerAideScreen> {
 
   Future<void> _distribuer() async {
     if (_selectedProjetId == null) {
-      setState(() => _submitError = 'Sélectionnez un projet.');
+      setState(() => _submitError = tr('select_project_msg'));
       return;
     }
     setState(() { _submitting = true; _submitError = null; });
 
-    // Vérifier la connectivité
     final connectivity = await Connectivity().checkConnectivity();
     final isOnline = connectivity.any((r) => r != ConnectivityResult.none);
 
     if (!isOnline) {
-      // Sauvegarder offline
       await DbService.saveDistribution(
         beneficiaireId: _beneficiaireId!,
         projetAideId: _selectedProjetId!,
@@ -132,11 +131,13 @@ class _State extends State<DistribuerAideScreen> {
       if (e.response?.statusCode == 409) {
         final doublon = e.response?.data?['doublon'] as Map<String, dynamic>?;
         setState(() => _submitError =
-          'DOUBLON ACTIF — Ce bénéficiaire reçoit déjà une aide "${doublon?['type'] ?? ''}" '
-          'de ${doublon?['ong'] ?? ''}, valide jusqu\'au ${doublon?['expiration'] ?? ''}.');
+          '${tr('dup_active_dist')} "${doublon?['type'] ?? ''}" '
+          '${tr('from_org')} ${doublon?['ong'] ?? ''}.');
       } else {
-        setState(() => _submitError = e.response?.data?['message'] ?? 'Erreur serveur.');
+        setState(() => _submitError = e.response?.data?['message'] ?? tr('server_error'));
       }
+    } catch (e) {
+      setState(() => _submitError = 'Erreur : ${e.toString()}');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -159,11 +160,12 @@ class _State extends State<DistribuerAideScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        title: const Text('Distribuer une aide', style: TextStyle(fontSize: 16)),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        surfaceTintColor: Colors.transparent,
+        title: Text(tr('distribute_title'), style: const TextStyle(fontSize: 16)),
         elevation: 0,
       ),
       body: AnimatedSwitcher(
@@ -184,23 +186,23 @@ class _State extends State<DistribuerAideScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Identifier le bénéficiaire', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          Text(tr('identify_ben'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
           const SizedBox(height: 4),
-          const Text('Saisissez l\'identité exacte telle qu\'elle a été enregistrée.', style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+          Text(tr('search_hint'), style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
           const SizedBox(height: 20),
 
           Row(
             children: [
-              Expanded(child: _buildInput(_prenomCtrl, 'Prénom')),
+              Expanded(child: _buildInput(_prenomCtrl, tr('first_name'))),
               const SizedBox(width: 12),
-              Expanded(child: _buildInput(_nomCtrl, 'Nom')),
+              Expanded(child: _buildInput(_nomCtrl, tr('last_name'))),
             ],
           ),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: _pickDate,
             child: AbsorbPointer(
-              child: _buildInput(_dateCtrl, 'Date de naissance', suffixIcon: Icons.calendar_today),
+              child: _buildInput(_dateCtrl, tr('birth_date'), suffixIcon: Icons.calendar_today),
             ),
           ),
 
@@ -222,7 +224,7 @@ class _State extends State<DistribuerAideScreen> {
               ),
               child: _searching
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Rechercher', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  : Text(tr('search_btn'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ),
           ),
         ],
@@ -237,7 +239,6 @@ class _State extends State<DistribuerAideScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Carte bénéficiaire
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -252,16 +253,18 @@ class _State extends State<DistribuerAideScreen> {
                 Expanded(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Bénéficiaire', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    Text(tr('beneficiary_lbl'), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
                     Text(_beneficiaireNom, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
                   ],
                 )),
-                TextButton(onPressed: () => setState(() { _step = 1; _doublonInfo = null; }), child: const Text('Changer', style: TextStyle(fontSize: 12))),
+                TextButton(
+                  onPressed: () => setState(() { _step = 1; _doublonInfo = null; }),
+                  child: Text(tr('change'), style: const TextStyle(fontSize: 12)),
+                ),
               ],
             ),
           ),
 
-          // Alerte doublon existant
           if (_doublonInfo != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -272,10 +275,10 @@ class _State extends State<DistribuerAideScreen> {
                 border: Border.all(color: const Color(0xFFFCA5A5)),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [
-                  Icon(Icons.warning_amber, color: Color(0xFFDC2626), size: 16),
-                  SizedBox(width: 6),
-                  Text('Aide active détectée', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 13)),
+                Row(children: [
+                  const Icon(Icons.warning_amber, color: Color(0xFFDC2626), size: 16),
+                  const SizedBox(width: 6),
+                  Text(tr('active_aid_detected'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 13)),
                 ]),
                 const SizedBox(height: 4),
                 Text(
@@ -287,7 +290,7 @@ class _State extends State<DistribuerAideScreen> {
           ],
 
           const SizedBox(height: 20),
-          const Text('Sélectionner le projet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          Text(tr('select_project'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
           const SizedBox(height: 16),
 
           if (_loadingProjets)
@@ -296,20 +299,19 @@ class _State extends State<DistribuerAideScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
-              child: const Text('Aucun projet actif. Demandez au représentant de créer un projet via l\'interface web.', style: TextStyle(fontSize: 13, color: Color(0xFFD97706))),
+              child: Text(tr('no_active_project'), style: const TextStyle(fontSize: 13, color: Color(0xFFD97706))),
             )
           else
             ..._projets.map((p) => _buildProjetCard(p)),
 
           const SizedBox(height: 16),
 
-          // Notes
           TextField(
             onChanged: (v) => _notesText = v,
             maxLines: 2,
             style: const TextStyle(color: Color(0xFF0F172A), fontSize: 14),
             decoration: InputDecoration(
-              labelText: 'Notes (optionnel)',
+              labelText: tr('notes_optional'),
               labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
               filled: true, fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
@@ -338,7 +340,7 @@ class _State extends State<DistribuerAideScreen> {
               ),
               child: _submitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Confirmer la distribution', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  : Text(tr('confirm_dist'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ),
           ),
         ],
@@ -413,14 +415,12 @@ class _State extends State<DistribuerAideScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              _savedOffline ? 'Sauvegardé hors ligne' : 'Aide enregistrée',
+              _savedOffline ? tr('saved_offline') : tr('aid_registered'),
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 8),
             Text(
-              _savedOffline
-                  ? 'La distribution sera synchronisée automatiquement au retour du réseau.'
-                  : 'La distribution a été enregistrée avec succès dans le registre partagé.',
+              _savedOffline ? tr('offline_sync_msg') : tr('online_success_msg'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
             ),
@@ -434,7 +434,7 @@ class _State extends State<DistribuerAideScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
-                child: const Text('Retour au tableau de bord', style: TextStyle(color: Color(0xFF475569))),
+                child: Text(tr('back_dashboard'), style: const TextStyle(color: Color(0xFF475569))),
               ),
             ),
           ],
@@ -474,6 +474,7 @@ class _State extends State<DistribuerAideScreen> {
 
   @override
   void dispose() {
+    localeNotifier.removeListener(_onLocaleChange);
     _prenomCtrl.dispose();
     _nomCtrl.dispose();
     _dateCtrl.dispose();

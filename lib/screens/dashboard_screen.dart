@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../l10n/translations.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/db_service.dart';
@@ -27,7 +28,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadData();
     _listenConnectivity();
+    localeNotifier.addListener(_onLocaleChange);
   }
+
+  void _onLocaleChange() => setState(() {});
 
   Future<void> _loadData() async {
     final name = await AuthService.getUserName();
@@ -53,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() { _pendingCount = pending; _syncing = false; });
     if (result.synced > 0) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${result.synced} distribution(s) synchronisée(s)'),
+        content: Text('${result.synced} ${tr('synced_msg')}'),
         backgroundColor: const Color(0xFF16A34A),
       ));
     }
@@ -83,23 +87,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('AideChain', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text('AideChain', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
             if (_ongNom.isNotEmpty)
-              Text(_ongNom, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+              Text(_ongNom, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
           ],
         ),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.language, color: Color(0xFF64748B)),
+            tooltip: tr('language'),
+            onSelected: (code) => setLocale(code),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'fr', child: Text('Français')),
+              PopupMenuItem(value: 'en', child: Text('English')),
+              PopupMenuItem(value: 'ar', child: Text('العربية')),
+            ],
+          ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
+            icon: const Icon(Icons.logout, color: Color(0xFF64748B)),
             onPressed: _logout,
-            tooltip: 'Déconnexion',
+            tooltip: tr('logout'),
           ),
         ],
       ),
@@ -109,79 +124,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(20),
           children: [
 
-            // Banière offline
             if (!_isOnline)
-              _buildBanner(
-                color: const Color(0xFFFFF7ED),
-                border: const Color(0xFFFB923C),
-                icon: Icons.wifi_off,
-                iconColor: const Color(0xFFF97316),
-                text: 'Mode hors ligne — les distributions seront synchronisées au retour du réseau.',
-              ),
+              _buildBanner(color: const Color(0xFFFFF7ED), border: const Color(0xFFFB923C),
+                icon: Icons.wifi_off, iconColor: const Color(0xFFF97316),
+                text: tr('offline_banner')),
 
-            // Banière sync en attente
             if (_pendingCount > 0) ...[
               if (!_isOnline) const SizedBox(height: 10),
-              _buildBanner(
-                color: const Color(0xFFFEFCE8),
-                border: const Color(0xFFEAB308),
-                icon: Icons.sync,
-                iconColor: const Color(0xFFCA8A04),
-                text: '$_pendingCount distribution(s) en attente de synchronisation.',
+              _buildBanner(color: const Color(0xFFFEFCE8), border: const Color(0xFFEAB308),
+                icon: Icons.sync, iconColor: const Color(0xFFCA8A04),
+                text: '$_pendingCount ${tr('pending_sync')}',
                 action: _isOnline
                     ? TextButton(
                         onPressed: _syncing ? null : _syncNow,
                         child: _syncing
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFCA8A04)))
-                            : const Text('Synchroniser', style: TextStyle(color: Color(0xFFCA8A04), fontWeight: FontWeight.w600)),
+                            : Text(tr('sync_btn'), style: const TextStyle(color: Color(0xFFCA8A04), fontWeight: FontWeight.w600)),
                       )
-                    : null,
-              ),
+                    : null),
             ],
 
             const SizedBox(height: 24),
-
-            // Bonjour
-            Text(
-              'Bonjour, $_userName',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
+            Text('${tr('greeting')} $_userName',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             const SizedBox(height: 4),
-            const Text(
-              'Que souhaitez-vous faire ?',
-              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
-            ),
+            Text(tr('what_to_do'), style: const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
             const SizedBox(height: 24),
 
-            // Actions
             _buildActionCard(
               onTap: _openEnregistrerBeneficiaire,
-              color: const Color(0xFFEFF6FF),
-              border: const Color(0xFFBFDBFE),
-              iconBg: const Color(0xFF3B82F6),
-              icon: Icons.person_add_outlined,
-              title: 'Enregistrer un bénéficiaire',
-              subtitle: 'Vérification doublon automatique',
+              color: const Color(0xFFEFF6FF), border: const Color(0xFFBFDBFE),
+              iconBg: const Color(0xFF3B82F6), icon: Icons.person_add_outlined,
+              title: tr('register_beneficiary'), subtitle: tr('auto_dup_check'),
             ),
             const SizedBox(height: 14),
             _buildActionCard(
               onTap: _openDistribuerAide,
-              color: const Color(0xFFF0FDF4),
-              border: const Color(0xFFBBF7D0),
-              iconBg: const Color(0xFF16A34A),
-              icon: Icons.check_circle_outline,
-              title: 'Distribuer une aide',
-              subtitle: 'Sélectionner parmi les projets actifs',
+              color: const Color(0xFFF0FDF4), border: const Color(0xFFBBF7D0),
+              iconBg: const Color(0xFF16A34A), icon: Icons.check_circle_outline,
+              title: tr('distribute_aid'), subtitle: tr('select_active_project'),
             ),
 
             const SizedBox(height: 32),
             const Divider(color: Color(0xFFE2E8F0)),
             const SizedBox(height: 16),
-            const Text(
-              'Pour créer des projets ou gérer votre ONG, connectez-vous via l\'interface web.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-            ),
+            Text(tr('web_hint'), textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
           ],
         ),
       ),
@@ -212,6 +200,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    localeNotifier.removeListener(_onLocaleChange);
+    super.dispose();
   }
 
   Widget _buildActionCard({

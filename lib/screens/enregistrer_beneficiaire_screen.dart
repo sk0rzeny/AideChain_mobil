@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import '../l10n/translations.dart';
 import '../services/api_service.dart';
 import 'distribuer_aide_screen.dart';
 
@@ -20,8 +21,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
   bool _loading = false;
   bool _checking = false;
 
-  // Résultat du check identité
-  String _checkType = ''; // 'new' | 'exists' | 'duplicate' | ''
+  String _checkType = '';
   Map<String, dynamic>? _checkData;
   int? _beneficiaireId;
 
@@ -32,13 +32,28 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
   static const _categories = [
     'individu', 'famille', 'enfant', 'femme_chef_menage', 'deplacement_interne'
   ];
-  static const _categorieLabels = {
-    'individu': 'Individu',
-    'famille': 'Famille',
-    'enfant': 'Enfant',
-    'femme_chef_menage': 'Femme chef de ménage',
-    'deplacement_interne': 'Déplacé interne',
+
+  Map<String, String> get _genreLabels => {
+    'homme': tr('male'),
+    'femme': tr('female'),
+    'autre': tr('other'),
   };
+
+  Map<String, String> get _categorieLabels => {
+    'individu': tr('individual'),
+    'famille': tr('family'),
+    'enfant': tr('child'),
+    'femme_chef_menage': tr('female_head'),
+    'deplacement_interne': tr('idp'),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    localeNotifier.addListener(_onLocaleChange);
+  }
+
+  void _onLocaleChange() => setState(() {});
 
   Future<void> _checkIdentity() async {
     if (_prenomCtrl.text.isEmpty || _nomCtrl.text.isEmpty || _dateCtrl.text.isEmpty) return;
@@ -52,17 +67,18 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
       );
 
       if (!mounted) return;
+      final data = res['data'] as Map<String, dynamic>;
       setState(() {
-        if (res['found'] == false) {
+        if (data['found'] == false) {
           _checkType = 'new';
-        } else if (res['doublon'] != null) {
+        } else if (data['doublon'] != null) {
           _checkType = 'duplicate';
-          _checkData = res['doublon'] as Map<String, dynamic>;
-          _beneficiaireId = res['beneficiaire_id'] as int?;
+          _checkData = data['doublon'] as Map<String, dynamic>;
+          _beneficiaireId = (data['beneficiaire'] as Map<String, dynamic>?)?['id'] as int?;
         } else {
           _checkType = 'exists';
-          _checkData = {'ong': res['beneficiaire']?['ong']?['nom'] ?? ''};
-          _beneficiaireId = res['beneficiaire_id'] as int?;
+          _checkData = {'ong': ''};
+          _beneficiaireId = (data['beneficiaire'] as Map<String, dynamic>?)?['id'] as int?;
         }
       });
     } catch (_) {
@@ -75,7 +91,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
   Future<void> _enregistrer() async {
     if (_prenomCtrl.text.isEmpty || _nomCtrl.text.isEmpty || _dateCtrl.text.isEmpty ||
         _genre.isEmpty || _categorie.isEmpty) {
-      setState(() => _error = 'Tous les champs sont obligatoires.');
+      setState(() => _error = tr('required_fields'));
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -92,7 +108,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
       if (!mounted) return;
       setState(() { _success = true; _beneficiaireId = bene['id'] as int; });
     } on DioException catch (e) {
-      setState(() => _error = e.response?.data?['message'] ?? 'Erreur serveur.');
+      setState(() => _error = e.response?.data?['message'] ?? tr('server_error'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -104,7 +120,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
       initialDate: DateTime(1990),
       firstDate: DateTime(1920),
       lastDate: DateTime.now().subtract(const Duration(days: 1)),
-      locale: const Locale('fr', 'FR'),
+      locale: localeNotifier.value,
     );
     if (date != null && mounted) {
       setState(() {
@@ -117,11 +133,12 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        title: const Text('Enregistrer un bénéficiaire', style: TextStyle(fontSize: 16)),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
+        surfaceTintColor: Colors.transparent,
+        title: Text(tr('register_ben_title'), style: const TextStyle(fontSize: 16)),
         elevation: 0,
       ),
       body: _success ? _buildSuccess() : _buildForm(),
@@ -134,32 +151,30 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Section identité
-          _buildSectionTitle('Identité'),
+          _buildSectionTitle(tr('identity')),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildInput(_prenomCtrl, 'Prénom', onBlur: _checkIdentity)),
+              Expanded(child: _buildInput(_prenomCtrl, tr('first_name'), onBlur: _checkIdentity)),
               const SizedBox(width: 12),
-              Expanded(child: _buildInput(_nomCtrl, 'Nom', onBlur: _checkIdentity)),
+              Expanded(child: _buildInput(_nomCtrl, tr('last_name'), onBlur: _checkIdentity)),
             ],
           ),
           const SizedBox(height: 12),
           GestureDetector(
             onTap: _pickDate,
             child: AbsorbPointer(
-              child: _buildInput(_dateCtrl, 'Date de naissance (AAAA-MM-JJ)', suffixIcon: Icons.calendar_today),
+              child: _buildInput(_dateCtrl, tr('birth_date'), suffixIcon: Icons.calendar_today),
             ),
           ),
 
-          // Indicateur check
           if (_checking) ...[
             const SizedBox(height: 10),
-            const Row(
+            Row(
               children: [
-                SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3B82F6))),
-                SizedBox(width: 8),
-                Text('Vérification en cours...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3B82F6))),
+                const SizedBox(width: 8),
+                Text(tr('checking'), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
               ],
             ),
           ],
@@ -170,13 +185,12 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
 
           const SizedBox(height: 20),
 
-          // Section profil
-          _buildSectionTitle('Profil'),
+          _buildSectionTitle(tr('profile')),
           const SizedBox(height: 12),
-          _buildDropdown('Genre', _genres, _genre, (v) => setState(() => _genre = v!),
-            labels: {'homme': 'Homme', 'femme': 'Femme', 'autre': 'Autre'}),
+          _buildDropdown(tr('gender'), _genres, _genre, (v) => setState(() => _genre = v!),
+            labels: _genreLabels),
           const SizedBox(height: 12),
-          _buildDropdown('Catégorie', _categories, _categorie, (v) => setState(() => _categorie = v!),
+          _buildDropdown(tr('category'), _categories, _categorie, (v) => setState(() => _categorie = v!),
             labels: _categorieLabels),
 
           if (_error != null) ...[
@@ -198,14 +212,14 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
               ),
               child: _loading
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Enregistrer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  : Text(tr('register_btn'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ),
           ),
           if (_checkType == 'duplicate')
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text('Enregistrement bloqué — doublon actif détecté.', textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(tr('dup_blocked_msg'), textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626))),
             ),
         ],
       ),
@@ -225,7 +239,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
               child: const Icon(Icons.check, color: Color(0xFF16A34A), size: 40),
             ),
             const SizedBox(height: 20),
-            const Text('Bénéficiaire enregistré', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            Text(tr('ben_registered'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
             Text('${_prenomCtrl.text} ${_nomCtrl.text}', style: const TextStyle(color: Color(0xFF64748B))),
             const SizedBox(height: 32),
@@ -243,13 +257,13 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: const Text('Distribuer une aide →', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                child: Text(tr('distribute_arrow'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Retour au tableau de bord', style: TextStyle(color: Color(0xFF64748B))),
+              child: Text(tr('back_dashboard'), style: const TextStyle(color: Color(0xFF64748B))),
             ),
           ],
         ),
@@ -261,12 +275,12 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
     if (_checkType == 'new') {
       return _buildBadge(color: const Color(0xFFF0FDF4), border: const Color(0xFF86EFAC),
           icon: Icons.fiber_new, iconColor: const Color(0xFF16A34A),
-          text: 'Nouveau bénéficiaire — sera ajouté au registre.');
+          text: tr('new_beneficiary'));
     }
     if (_checkType == 'exists') {
       return _buildBadge(color: const Color(0xFFFFFBEB), border: const Color(0xFFFDE68A),
           icon: Icons.info_outline, iconColor: const Color(0xFFD97706),
-          text: 'Déjà enregistré par ${_checkData?['ong'] ?? ''}. L\'aide sera liée au dossier existant.');
+          text: tr('already_registered'));
     }
     if (_checkType == 'duplicate') {
       return Container(
@@ -279,16 +293,16 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(children: [
-              Icon(Icons.block, color: Color(0xFFDC2626), size: 18),
-              SizedBox(width: 8),
-              Text('DOUBLON ACTIF — Distribution bloquée', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 13)),
+            Row(children: [
+              const Icon(Icons.block, color: Color(0xFFDC2626), size: 18),
+              const SizedBox(width: 8),
+              Text(tr('duplicate_active'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 13)),
             ]),
             const SizedBox(height: 6),
             Text(
-              'Ce bénéficiaire reçoit déjà une aide ${_checkData?['aide'] ?? ''} '
-              'distribuée par ${_checkData?['ong'] ?? ''}, '
-              'valide jusqu\'au ${_checkData?['expiration'] ?? ''}.',
+              '${tr('duplicate_detail')} ${_checkData?['aide'] ?? ''} '
+              '${tr('by_org')} ${_checkData?['ong'] ?? ''}, '
+              '${tr('valid_until')} ${_checkData?['expiration'] ?? ''}.',
               style: const TextStyle(fontSize: 12, color: Color(0xFF9F1239)),
             ),
           ],
@@ -367,6 +381,7 @@ class _State extends State<EnregistrerBeneficiaireScreen> {
 
   @override
   void dispose() {
+    localeNotifier.removeListener(_onLocaleChange);
     _prenomCtrl.dispose();
     _nomCtrl.dispose();
     _dateCtrl.dispose();
